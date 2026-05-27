@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elissa's 23rd 🎀 Photobooth</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Elissa's 23rd 🎀</h1>
+      <p class="subtitle">strike a pose!</p>
+    </header>
+
+    <!-- Camera View -->
+    <section id="camera-section">
+      <div class="viewfinder-wrapper">
+        <video id="viewfinder" autoplay playsinline muted></video>
+        <div id="countdown-overlay" class="hidden">
+          <span id="countdown-number"></span>
+        </div>
+        <div id="flash-overlay" class="hidden"></div>
+      </div>
+
+      <!-- Frame Picker -->
+      <div class="frame-picker-label">choose a frame</div>
+      <div class="frame-picker">
+        <button class="frame-option selected" data-frame="white" aria-label="White frame">
+          <span class="frame-swatch white-swatch"></span>
+          <span class="frame-name">classic</span>
+        </button>
+        <button class="frame-option" data-frame="black" aria-label="Black frame">
+          <span class="frame-swatch black-swatch"></span>
+          <span class="frame-name">noir</span>
+        </button>
+        <button class="frame-option" data-frame="pink" aria-label="Pink frame">
+          <span class="frame-swatch pink-swatch"></span>
+          <span class="frame-name">rosy</span>
+        </button>
+      </div>
+
+      <button id="capture-btn" aria-label="Take photo">
+        <span class="shutter-ring">
+          <span class="shutter-dot"></span>
+        </span>
+      </button>
+    </section>
+
+    <!-- Preview View -->
+    <section id="preview-section" class="hidden">
+      <div class="preview-wrapper">
+        <canvas id="polaroid-canvas"></canvas>
+      </div>
+      <div class="preview-actions">
+        <button id="retake-btn" class="btn btn-secondary">retake</button>
+        <button id="download-btn" class="btn btn-primary">save photo 💾</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Hidden working canvas -->
+  <canvas id="work-canvas" style="display:none;"></canvas>
+
+  <script src="app.js"></script>
+</body>
+</html>
