@@ -4,7 +4,7 @@ import {
   STRIP_W, STRIP_H, STRIP_SIDE_PAD, STRIP_PHOTO_SZ, STRIP_GAP, STRIP_TOP_PAD, STRIP_BOT_PAD,
 } from './config.js';
 
-export function composePolaroid(photoSource, frameKey, canvas) {
+export function composePolaroid(photoSource, frameKey, canvas, captionText = "Elissa's 23rd 🎀") {
   const frame = FRAMES[frameKey] || FRAMES.white;
 
   canvas.width  = PW;
@@ -38,7 +38,7 @@ export function composePolaroid(photoSource, frameKey, canvas) {
   ctx.fillStyle = frameKey === 'black' ? '#c9a84c' : '#9a7530';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText("Elissa's 23rd 🎀", PW / 2, captionY);
+  ctx.fillText(captionText, PW / 2, captionY);
 
   ctx.save();
   ctx.strokeStyle = frameKey === 'white' ? '#e0e0e0' :
@@ -49,7 +49,7 @@ export function composePolaroid(photoSource, frameKey, canvas) {
   ctx.restore();
 }
 
-export function composePhotostrip(photoSources, frameKey, canvas) {
+export function composePhotostrip(photoSources, frameKey, canvas, captionText = "Elissa's 23rd 🎀") {
   const frame = FRAMES[frameKey] || FRAMES.white;
 
   canvas.width  = STRIP_W;
@@ -81,7 +81,7 @@ export function composePhotostrip(photoSources, frameKey, canvas) {
   ctx.fillStyle = frameKey === 'black' ? '#c9a84c' : '#9a7530';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText("Elissa's 23rd 🎀", STRIP_W / 2, captionY);
+  ctx.fillText(captionText, STRIP_W / 2, captionY);
 
   ctx.save();
   ctx.strokeStyle = frameKey === 'white' ? '#e0e0e0' :

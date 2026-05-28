@@ -15,6 +15,7 @@ const downloadBtn   = document.getElementById('download-btn');
 const frameOptions  = document.querySelectorAll('.frame-option');
 const modeOptions   = document.querySelectorAll('.mode-option');
 const photoProgress = document.getElementById('photo-progress');
+const captionInput  = document.getElementById('caption-input');
 
 // ── State ─────────────────────────────────────
 let selectedFrame = 'white';
@@ -82,7 +83,8 @@ async function capturePhoto() {
   wCtx.restore();
 
   await waitForFont();
-  composePolaroid(workCanvas, selectedFrame, polaroidCanvas);
+  const caption = captionInput.value.trim() || captionInput.placeholder;
+  composePolaroid(workCanvas, selectedFrame, polaroidCanvas, caption);
 
   cameraSection.classList.add('hidden');
   previewSection.classList.remove('hidden');
@@ -132,7 +134,8 @@ async function runPhotoboothSequence() {
   modeOptions.forEach(b => { b.disabled = false; });
 
   await waitForFont();
-  composePhotostrip(frames, selectedFrame, polaroidCanvas);
+  const caption = captionInput.value.trim() || captionInput.placeholder;
+  composePhotostrip(frames, selectedFrame, polaroidCanvas, caption);
 
   cameraSection.classList.add('hidden');
   previewSection.classList.remove('hidden');
