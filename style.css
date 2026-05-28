@@ -315,6 +315,102 @@ header h1 {
   background: var(--off-white);
 }
 
+/* ── Mode Picker ── */
+.mode-picker-label {
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--text-mid);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  align-self: flex-start;
+  padding-left: 2px;
+}
+
+.mode-picker {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 4px 2px;
+}
+
+.mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: var(--white);
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  cursor: pointer;
+  flex: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  font-family: inherit;
+}
+
+.mode-option:active { transform: scale(0.95); }
+.mode-option:disabled { opacity: 0.5; pointer-events: none; }
+
+.mode-option.selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mode-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.mode-name {
+  font-size: 0.68rem;
+  color: var(--text-mid);
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
+
+/* ── Shot Progress ── */
+#photo-progress {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 15;
+  pointer-events: none;
+}
+
+#shot-indicators {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 7px 16px;
+  border-radius: 20px;
+}
+
+.shot-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  transition: background 0.25s, transform 0.2s;
+}
+
+.shot-dot.active {
+  background: white;
+  border-color: white;
+  transform: scale(1.25);
+}
+
+.shot-dot.taken {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 

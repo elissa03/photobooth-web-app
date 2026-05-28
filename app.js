@@ -19,11 +19,15 @@
   const retakeBtn       = document.getElementById('retake-btn');
   const downloadBtn     = document.getElementById('download-btn');
   const frameOptions    = document.querySelectorAll('.frame-option');
+  const modeOptions     = document.querySelectorAll('.mode-option');
+  const photoProgress   = document.getElementById('photo-progress');
 
   // ── State ─────────────────────────────────────
-  let stream       = null;
+  let stream        = null;
   let selectedFrame = 'white';
-  let fontReady    = false;
+  let selectedMode  = 'polaroid';
+  let fontReady     = false;
+  let audioContext  = null;
 
   // ── Frame config ──────────────────────────────
   const FRAMES = {
@@ -41,6 +45,15 @@
   const ROUNDING = 14;
   const PHOTO_W = PW - PAD * 2;
   const PHOTO_H = PH - PTOP - PBOT - PAD; // photo area height
+
+  // ── Photo strip dimensions ────────────────────
+  const STRIP_SIDE_PAD  = 20;
+  const STRIP_PHOTO_SZ  = 340;  // square photo size
+  const STRIP_GAP       = 10;   // gap between photos
+  const STRIP_TOP_PAD   = 24;
+  const STRIP_BOT_PAD   = 80;
+  const STRIP_W = STRIP_PHOTO_SZ + STRIP_SIDE_PAD * 2;
+  const STRIP_H = STRIP_TOP_PAD + 4 * STRIP_PHOTO_SZ + 3 * STRIP_GAP + STRIP_BOT_PAD;
 
   // ── 1. Font preload ───────────────────────────
   async function waitForFont() {
@@ -84,15 +97,113 @@
     });
   });
 
-  // ── 4. Countdown → capture ────────────────────
-  captureBtn.addEventListener('click', () => {
-    captureBtn.disabled = true;
-    runCountdown([3, 2, 1], () => {
-      triggerFlash();
-      capturePhoto();
-      captureBtn.disabled = false;
+  // ── Mode picker ───────────────────────────────
+  modeOptions.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeOptions.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedMode = btn.dataset.mode;
     });
   });
+
+  // ── 4. Countdown → capture ────────────────────
+  captureBtn.addEventListener('click', async () => {
+    captureBtn.disabled = true;
+    await prepareAudio();
+    if (selectedMode === 'photobooth') {
+      await runPhotoboothSequence();
+    } else {
+      runCountdown([3, 2, 1], () => {
+        triggerFlash();
+        playShutterSound();
+        capturePhoto();
+        captureBtn.disabled = false;
+      });
+    }
+  });
+
+  async function prepareAudio() {
+    if (!audioContext) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        return;
+      }
+
+      audioContext = new AudioContextClass();
+    }
+
+    if (audioContext.state === 'suspended') {
+      try {
+        await audioContext.resume();
+      } catch (err) {
+        console.warn('Audio resume failed:', err);
+      }
+    }
+  }
+
+  function playShutterSound() {
+    if (!audioContext || audioContext.state !== 'running') {
+      return;
+    }
+
+    const now = audioContext.currentTime;
+    const masterGain = audioContext.createGain();
+    masterGain.gain.setValueAtTime(0.0001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.24, now + 0.01);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    masterGain.connect(audioContext.destination);
+
+    const clickOsc = audioContext.createOscillator();
+    clickOsc.type = 'triangle';
+    clickOsc.frequency.setValueAtTime(1800, now);
+    clickOsc.frequency.exponentialRampToValueAtTime(380, now + 0.045);
+
+    const clickGain = audioContext.createGain();
+    clickGain.gain.setValueAtTime(0.0001, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.7, now + 0.004);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+    clickOsc.connect(clickGain);
+    clickGain.connect(masterGain);
+
+    const snapBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.08, audioContext.sampleRate);
+    const channelData = snapBuffer.getChannelData(0);
+    for (let i = 0; i < channelData.length; i += 1) {
+      const decay = 1 - i / channelData.length;
+      channelData[i] = (Math.random() * 2 - 1) * decay * 0.35;
+    }
+
+    const noiseSource = audioContext.createBufferSource();
+    noiseSource.buffer = snapBuffer;
+
+    const noiseFilter = audioContext.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(1400, now);
+    noiseFilter.Q.setValueAtTime(0.9, now);
+
+    const noiseGain = audioContext.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.45, now + 0.002);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(masterGain);
+
+    clickOsc.start(now);
+    clickOsc.stop(now + 0.055);
+    noiseSource.start(now + 0.008);
+    noiseSource.stop(now + 0.09);
+
+    noiseSource.addEventListener('ended', () => {
+      clickOsc.disconnect();
+      clickGain.disconnect();
+      noiseSource.disconnect();
+      noiseFilter.disconnect();
+      noiseGain.disconnect();
+      masterGain.disconnect();
+    }, { once: true });
+  }
 
   function runCountdown(steps, done) {
     if (steps.length === 0) { done(); return; }
@@ -115,6 +226,32 @@
       // hide overlay just before capture
       setTimeout(() => countdownOverlay.classList.add('hidden'), 900);
     }
+  }
+
+  function runCountdownAsync(steps) {
+    return new Promise(resolve => runCountdown(steps, resolve));
+  }
+
+  function announceShot(n) {
+    return new Promise(resolve => {
+      countdownNumber.textContent = `${n} / 4`;
+      countdownOverlay.classList.remove('hidden');
+      countdownNumber.style.animation = 'none';
+      void countdownNumber.offsetWidth;
+      countdownNumber.style.animation = '';
+      setTimeout(() => {
+        countdownOverlay.classList.add('hidden');
+        resolve();
+      }, 800);
+    });
+  }
+
+  function updateShotDots(activeIndex) {
+    document.querySelectorAll('.shot-dot').forEach((dot, i) => {
+      dot.classList.remove('active', 'taken');
+      if (i < activeIndex) dot.classList.add('taken');
+      if (i === activeIndex) dot.classList.add('active');
+    });
   }
 
   function triggerFlash() {
@@ -153,6 +290,57 @@
     cameraSection.classList.add('hidden');
     previewSection.classList.remove('hidden');
     stopCamera();
+  }
+
+  // ── 5b. Raw frame capture (for strip mode) ───
+  function captureRawFrame() {
+    const vw = viewfinder.videoWidth  || 640;
+    const vh = viewfinder.videoHeight || 480;
+    const canvas = document.createElement('canvas');
+    canvas.width  = vw;
+    canvas.height = vh;
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.translate(vw, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(viewfinder, 0, 0, vw, vh);
+    ctx.restore();
+    return canvas;
+  }
+
+  // ── 5c. Photobooth sequence (4 shots) ────────
+  async function runPhotoboothSequence() {
+    modeOptions.forEach(b => { b.disabled = true; });
+    photoProgress.classList.remove('hidden');
+    updateShotDots(0);
+
+    const frames = [];
+    for (let i = 0; i < 4; i++) {
+      updateShotDots(i);
+      await announceShot(i + 1);
+      await runCountdownAsync([3, 2, 1]);
+
+      triggerFlash();
+      playShutterSound();
+      frames.push(captureRawFrame());
+
+      const dots = document.querySelectorAll('.shot-dot');
+      dots[i].classList.remove('active');
+      dots[i].classList.add('taken');
+
+      if (i < 3) await new Promise(r => setTimeout(r, 900));
+    }
+
+    photoProgress.classList.add('hidden');
+    modeOptions.forEach(b => { b.disabled = false; });
+
+    await waitForFont();
+    composePhotostrip(frames, selectedFrame);
+
+    cameraSection.classList.add('hidden');
+    previewSection.classList.remove('hidden');
+    stopCamera();
+    captureBtn.disabled = false;
   }
 
   // ── 6. Polaroid compositor ────────────────────
@@ -241,6 +429,53 @@
     ctx.closePath();
   }
 
+  // ── 6b. Photo strip compositor ───────────────
+  function composePhotostrip(photoSources, frameKey) {
+    const frame = FRAMES[frameKey] || FRAMES.white;
+
+    polaroidCanvas.width  = STRIP_W;
+    polaroidCanvas.height = STRIP_H;
+
+    const ctx = polaroidCanvas.getContext('2d');
+
+    drawRoundRect(ctx, 0, 0, STRIP_W, STRIP_H, ROUNDING, frame.border);
+
+    for (let i = 0; i < photoSources.length; i++) {
+      const src    = photoSources[i];
+      const photoX = STRIP_SIDE_PAD;
+      const photoY = STRIP_TOP_PAD + i * (STRIP_PHOTO_SZ + STRIP_GAP);
+
+      ctx.save();
+      ctx.beginPath();
+      roundRectPath(ctx, photoX, photoY, STRIP_PHOTO_SZ, STRIP_PHOTO_SZ, 4);
+      ctx.clip();
+
+      // Center-crop the video frame to a square
+      const srcMin = Math.min(src.width, src.height);
+      const srcX   = (src.width  - srcMin) / 2;
+      const srcY   = (src.height - srcMin) / 2;
+      ctx.drawImage(src, srcX, srcY, srcMin, srcMin, photoX, photoY, STRIP_PHOTO_SZ, STRIP_PHOTO_SZ);
+      ctx.restore();
+    }
+
+    // Caption
+    const captionY = STRIP_TOP_PAD + 4 * STRIP_PHOTO_SZ + 3 * STRIP_GAP + STRIP_BOT_PAD / 2;
+    ctx.font = '700 38px "Dancing Script", cursive';
+    ctx.fillStyle = frameKey === 'black' ? '#c9a84c' : '#9a7530';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText("Elissa's 23rd 🎀", STRIP_W / 2, captionY);
+
+    // Outer border
+    ctx.save();
+    ctx.strokeStyle = frameKey === 'white' ? '#e0e0e0' :
+                      frameKey === 'black' ? '#1c1c1c' : '#c9a84c';
+    ctx.lineWidth = 10;
+    roundRectPath(ctx, 0, 0, STRIP_W, STRIP_H, ROUNDING);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // ── 7. Download ───────────────────────────────
   downloadBtn.addEventListener('click', () => {
     const dataURL = polaroidCanvas.toDataURL('image/png');
@@ -254,7 +489,8 @@
   retakeBtn.addEventListener('click', () => {
     previewSection.classList.add('hidden');
     cameraSection.classList.remove('hidden');
-    // Clear canvases
+    photoProgress.classList.add('hidden');
+    document.querySelectorAll('.shot-dot').forEach(d => d.classList.remove('active', 'taken'));
     const ctx = polaroidCanvas.getContext('2d');
     ctx.clearRect(0, 0, polaroidCanvas.width, polaroidCanvas.height);
     startCamera();
